@@ -1,9 +1,8 @@
 --!nocheck
 local Players = game.Players
+local ragdollRE = script.RagdollRE
 local ragdollCloneRE = script.RagdollCloneRE
 local ragdoll = {}
-
-local lastChar: Model
 export type Ragdoll = {
     ToggleRagdoll: (character: Model?, enabled: boolean?) -> (),
     toggleRagdollCharacter: (character: Model?, enabled: boolean?) -> (),
@@ -76,14 +75,7 @@ local function setupRagdoll(character: Model)
     end
 end
 
-local function setupHumamoid(humanoid: Humanoid, enabled: boolean?)
-    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not enabled)
-    humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, not enabled)
-    humanoid.PlatformStand = enabled
-    humanoid.AutoRotate = not enabled
-end
-
-local function toggleMotor6D(character: Model?, enabled: boolean?)
+local function toggleMotor6D(character: Model, enabled: boolean?)
     for _, instance in character:GetDescendants() do
         if instance.Name == "RootJoint" or instance.Name == "Neck" then
             continue
@@ -105,61 +97,69 @@ local function toggleMotor6D(character: Model?, enabled: boolean?)
     end
 end
 
-local function fireRagdoll(character: Model, enabled: boolean)
-    toggleMotor6D(character, not enabled)
-    setupHumamoid(character:WaitForChild("Humanoid"), enabled)
-end
-
 --[=[
     Creates a Ragdoll as an object.
     character: Model -- Character for setting up a Ragdoll.
 ]=]
 function ragdoll.new(character: Model) : {}
     local self = {} :: Ragdoll
-    lastChar = character
-    local humanoid = lastChar:FindFirstChildOfClass("Humanoid") :: Humanoid
+    local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
     humanoid.RequiresNeck = true
     humanoid.BreakJointsOnDeath = false
 
-    lastChar:SetAttribute("isRagdoll", false)
+    character:SetAttribute("isRagdoll", false)
 
-    setupRagdoll(lastChar)
+    setupRagdoll(character)
     return self
 end
 
-local modelCFrame: CFrame
+local lastJumpPower: number
+
+function doRagdoll(character: Model)
+    local player = Players:GetPlayerFromCharacter(character)
+    local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart
+    local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
+
+    lastJumpPower = humanoid.UseJumpPower and humanoid.JumpPower or humanoid.JumpHeight
+    if humanoid.UseJumpPower then
+        humanoid.JumpPower = 0
+    else
+        humanoid.JumpHeight = 0
+    end
+
+    rootPart:SetNetworkOwner(player)
+
+    ragdollRE:FireAllClients(humanoid, false)
+    humanoid.PlatformStand = true
+    toggleMotor6D(character, false)
+end
+
+function unRagdoll(character: Model)
+    local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
+
+    humanoid.PlatformStand = false
+    ragdollRE:FireAllClients(humanoid, true)
+    toggleMotor6D(character, true)
+
+    if humanoid.UseJumpPower then
+        humanoid.JumpPower = lastJumpPower
+    else
+        humanoid.JumpHeight = lastJumpPower
+    end
+end
 
 --[=[
     Toggles Ragdoll for Character.
     character: Model? -- Character for toggling Ragdoll.
     enabled: boolean? -- self-explainatory.
 ]=]
-function ragdoll:ToggleRagdoll(character: Model?, enabled: boolean?)
-    if character then
-        lastChar = character
-    end
+function ragdoll:ToggleRagdoll(character: Model, enabled: boolean?)
+	character:SetAttribute("isRagdoll", enabled)
 
     if enabled then
-        modelCFrame = lastChar:GetPivot()
-    end
-
-    local player = Players:GetPlayerFromCharacter(lastChar)
-    local rootPart = lastChar:FindFirstChild("HumanoidRootPart") :: BasePart
-
-    if enabled then
-        rootPart:SetNetworkOwner(player)
-    end
-
-    fireRagdoll(lastChar, enabled)
-    
-	lastChar:SetAttribute("isRagdoll", enabled)
-
-    if not enabled then
-        local characterPivot = lastChar:GetPivot()
-        local characterPos = characterPivot.Position
-
-        local position = CFrame.new(characterPos.X, characterPos.Y, characterPos.Z)
-        lastChar:PivotTo(position * modelCFrame.Rotation)
+        doRagdoll(character)
+    else
+        unRagdoll(character)
     end
 end
 
@@ -168,7 +168,7 @@ end
     character: Model? -- Character for toggling Ragdoll.
     enabled: boolean? -- self-explainatory.
 ]=]
-function ragdoll:toggleRagdollCharacter(character: Model?, enabled: boolean?)
+function ragdoll:toggleRagdollCharacter(character: Model, enabled: boolean?)
     ragdoll:ToggleRagdoll(character, enabled)
 end
 
@@ -178,16 +178,13 @@ end
     character: Model? -- Character for Ragdoll Clone.
     playerAttach: boolean? -- Whether will player be attached to this Clone.
 ]=]
-function ragdoll:MakeRagdollClone(character: Model?, playerAttach: boolean?, timeout: number?) : ()
-    if character then
-        lastChar = character
-    end
-    local oldCharacter = lastChar
-    local player = Players:GetPlayerFromCharacter(lastChar)
+function ragdoll:MakeRagdollClone(character: Model, playerAttach: boolean?, timeout: number?) : ()
+    local oldCharacter = character
+    local player = Players:GetPlayerFromCharacter(character)
 
-    lastChar.Archivable = true
+    character.Archivable = true
     local _character = oldCharacter:Clone()
-    lastChar.Archivable = false
+    character.Archivable = false
 
     _character.PrimaryPart = oldCharacter.PrimaryPart
     _character:PivotTo(oldCharacter:GetPivot())
@@ -202,10 +199,16 @@ function ragdoll:MakeRagdollClone(character: Model?, playerAttach: boolean?, tim
 
     _character.Parent = workspace
     local _humanoid = _character:FindFirstChildOfClass("Humanoid") :: Humanoid
-    fireRagdoll(_character, true)
     local rootPart = _character:FindFirstChild("HumanoidRootPart") :: BasePart
     local owner = playerAttach and player or nil
     rootPart:SetNetworkOwner(owner)
+
+    toggleMotor6D(_character, false)
+    _humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+    _humanoid:ChangeState(Enum.HumanoidStateType.PlatformStanding)
+    _humanoid.PlatformStand = true
+
+    _character:SetAttribute("isRagdoll", true)
 
     if playerAttach then
         ragdollCloneRE:FireClient(player, _humanoid)
@@ -218,10 +221,7 @@ function ragdoll:MakeRagdollClone(character: Model?, playerAttach: boolean?, tim
     end
 end
 
-function ragdoll:GetRagdollState(character: Model?)
-    if not character then
-        character = lastChar
-    end
+function ragdoll:GetRagdollState(character: Model)
     return character:GetAttribute("isRagdoll")
 end
 
