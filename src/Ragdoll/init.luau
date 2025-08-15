@@ -113,39 +113,38 @@ function ragdoll.new(character: Model) : {}
     return self
 end
 
-local lastJumpPower: number
-
 function doRagdoll(character: Model)
     local player = Players:GetPlayerFromCharacter(character)
     local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart
     local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
 
-    lastJumpPower = humanoid.UseJumpPower and humanoid.JumpPower or humanoid.JumpHeight
-    if humanoid.UseJumpPower then
-        humanoid.JumpPower = 0
-    else
-        humanoid.JumpHeight = 0
-    end
-
     rootPart:SetNetworkOwner(player)
-
-    ragdollRE:FireAllClients(humanoid, false)
+    if player then
+        ragdollRE:FireAllClients(humanoid, false)
+        humanoid.AutoRotate = false
+    else
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        humanoid:ChangeState(Enum.HumanoidStateType.PlatformStanding)
+    end
     humanoid.PlatformStand = true
     toggleMotor6D(character, false)
 end
 
 function unRagdoll(character: Model)
+    local player = Players:GetPlayerFromCharacter(character)
     local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
 
     humanoid.PlatformStand = false
-    ragdollRE:FireAllClients(humanoid, true)
-    toggleMotor6D(character, true)
-
-    if humanoid.UseJumpPower then
-        humanoid.JumpPower = lastJumpPower
+    if player then
+        ragdollRE:FireAllClients(humanoid, true)
+        humanoid.AutoRotate = true
     else
-        humanoid.JumpHeight = lastJumpPower
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
+    toggleMotor6D(character, true)
 end
 
 --[=[
