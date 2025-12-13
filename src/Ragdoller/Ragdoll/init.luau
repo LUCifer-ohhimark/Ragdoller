@@ -53,8 +53,9 @@ function ragdoll.Setup(self)
 
     Registry[self.Character] = self
 
-    self.Player.CharacterRemoving:Once(function()
-        table.remove(Registry, self.Character)
+    self.Character.Destroying:Once(function()
+        local id = table.find(Registry, self)
+        table.remove(Registry, id)
     end)
 
     for _, v in RagdollData.BodyParts_R6 do
@@ -118,12 +119,14 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
         if id then table.remove(reservedMotors6D, id) end
     end
 
-    for i, motor6D in self.Options.IgnoredMotors6D do
-        if typeof(motor6D) == "string" then
-            local actualMotor6DTable = self.Character:QueryDescendants(`Motor6D[Name = {motor6D}]`)
-            assert(actualMotor6DTable, `{motor6D} is not found`) 
-            table.remove(self.Options.IgnoredMotors6D, i)
-            table.insert(self.Options.IgnoredMotors6D, table.unpack(actualMotor6DTable))
+    if #self.Options.IgnoredMotors6D > 0 then
+        for i, motor6D in self.Options.IgnoredMotors6D do
+            if typeof(motor6D) == "string" then
+                local actualMotor6DTable = self.Character:QueryDescendants(`Motor6D[Name = {motor6D}]`)
+                assert(actualMotor6DTable, `{motor6D} is not found`) 
+                table.remove(self.Options.IgnoredMotors6D, i)
+                table.insert(self.Options.IgnoredMotors6D, table.unpack(actualMotor6DTable))
+            end
         end
     end
 
@@ -158,18 +161,27 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
 end
 
 function ragdoll.Ragdoll(self)
-    self.RootPart:SetNetworkOwner(self.Player)
     if self.Player then
         local RagdollRemote = script:FindFirstChild("RagdollRemote")
         RagdollRemote:FireAllClients(self.Humanoid, true)
         self.Humanoid.AutoRotate = false
+    else
+        self.RootPart:SetNetworkOwner(nil)
+        RagdollState:EnableRagdollState(self.Humanoid)
     end
-    RagdollState:EnableRagdollState(self.Humanoid)
+    self.Humanoid.PlatformStand = true
     ragdoll.ToggleMotor6D(self, false)
 end
 
 function ragdoll.UnRagdoll(self)
-    RagdollState:DisableRagdollState(self.Humanoid)
+    self.Humanoid.PlatformStand = false
+    if self.Player then
+        local RagdollRemote = script:FindFirstChild("RagdollRemote")
+        RagdollRemote:FireAllClients(self.Humanoid, false)
+        self.Humanoid.AutoRotate = true
+    else
+        RagdollState:DisableRagdollState(self.Humanoid)
+    end
     ragdoll.ToggleMotor6D(self, true)
 end
 
