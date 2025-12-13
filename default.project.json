@@ -1,5 +1,5 @@
 {
-  "name": "Ragdoll_Module",
+  "name": "Ragdoller",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
