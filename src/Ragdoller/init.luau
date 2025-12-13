@@ -26,7 +26,7 @@ end
 if not script:FindFirstChild("RagdollRemote") then
     local remote = Instance.new("RemoteEvent")
     remote.Name = "RagdollRemote"
-    remote.Parent = script
+    remote.Parent = script.Ragdoll
 end
 
 return module
