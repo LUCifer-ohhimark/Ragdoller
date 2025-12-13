@@ -1,0 +1,2 @@
+local registry = {}
+return registry

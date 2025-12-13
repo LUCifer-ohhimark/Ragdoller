@@ -1,42 +1,18 @@
--- function doRagdoll(character: Model)
---     rootPart:SetNetworkOwner(player)
---     if player then
---         ragdollRE:FireAllClients(humanoid, false)
---         humanoid.AutoRotate = false
---     else
---         humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
---         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
---         humanoid:ChangeState(Enum.HumanoidStateType.PlatformStanding)
---     end
---     humanoid.PlatformStand = true
---     toggleMotor6D(character, false)
--- end
---
--- function unRagdoll(character: Model)
---     local player = Players:GetPlayerFromCharacter(character)
---     local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid
---
---     humanoid.PlatformStand = false
---     if player then
---         ragdollRE:FireAllClients(humanoid, true)
---         humanoid.AutoRotate = true
---     else
---         humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
---         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
---         humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
---     end
---     toggleMotor6D(character, true)
--- end
-
 local Players = game:GetService("Players")
+local RagdollState = require(script.RagdollState)
 local RagdollData = require(script.Parent.RagdollData)
+local Registry = require(script.Parent.RagdollRegistry)
 local ragdoll = {}
 ragdoll.__index = ragdoll
 
 export type Ragdoll = typeof(setmetatable({} :: {
     Character: Model,
     Options: {any},
-    Player: Player
+    Player: Player,
+    Ragdoll: (self: {}) -> (),
+    UnRagdoll: (self: {}) -> (),
+    ToggleMotor6D: (self: {}, enabled: boolean) -> (),
+    GetRagdollState: (self: {}) -> boolean
 }, ragdoll))
 
 local DEFAULT_OPTS = RagdollData.DefaultOpts
@@ -51,18 +27,16 @@ local function formatOpts(opts: {any}?)
 end
 
 function ragdoll.new(character: Model, opts: {any}?)
-    local _opts = formatOpts(opts)
+    opts = formatOpts(opts)
 
     local self = setmetatable({
         Character = character,
-        Options = _opts
+        Options = opts
     }, ragdoll)
 
     self.Player = Players:GetPlayerFromCharacter(self.Character)
 
     self.Humanoid = self.Character:FindFirstChildOfClass('Humanoid')
-    self.Humanoid.BreakJointsOnDeath = false
-    self.Humanoid.RequiresNeck = self.Options.RequiresNeck
 
     self.RootPart = self.Character:FindFirstChild("HumanoidRootPart")
     self.Torso = self.Character:FindFirstChild("Torso")
@@ -73,11 +47,15 @@ end
 
 
 function ragdoll.Setup(self)
-    local RagdollCallback = Instance.new("BindableFunction")
-    RagdollCallback.Name = "RAGDOLL_CALLBACK"
-    RagdollCallback.OnInvoke = function() return self end
-
+    self.Humanoid.BreakJointsOnDeath = false
+    self.Humanoid.RequiresNeck = self.Options.RequiresNeck
     self.Humanoid:SetAttribute("IS_RAGDOLL", false)
+
+    Registry[self.Character] = self
+
+    self.Player.CharacterRemoving:Once(function()
+        table.remove(Registry, self.Character)
+    end)
 
     for _, v in RagdollData.BodyParts_R6 do
         local bodyPart: BasePart = self.Character:FindFirstChild(v)
@@ -128,8 +106,6 @@ function ragdoll.Setup(self)
         attachment1.Parent = part1
         ragdollBallSocket.Parent = part1
     end
-
-    RagdollCallback.Parent = self.Humanoid
 end
 
 function ragdoll.ToggleMotor6D(self, enabled: boolean)
@@ -182,13 +158,18 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
 end
 
 function ragdoll.Ragdoll(self)
-    local player = Players:GetPlayerFromCharacter(self.Character)
-    self.Humanoid.PlatformStand = true
+    self.RootPart:SetNetworkOwner(self.Player)
+    if self.Player then
+        local RagdollRemote = script:FindFirstChild("RagdollRemote")
+        RagdollRemote:FireAllClients(self.Humanoid, true)
+        self.Humanoid.AutoRotate = false
+    end
+    RagdollState:EnableRagdollState(self.Humanoid)
     ragdoll.ToggleMotor6D(self, false)
 end
 
 function ragdoll.UnRagdoll(self)
-    self.Humanoid.PlatformStand = false
+    RagdollState:DisableRagdollState(self.Humanoid)
     ragdoll.ToggleMotor6D(self, true)
 end
 

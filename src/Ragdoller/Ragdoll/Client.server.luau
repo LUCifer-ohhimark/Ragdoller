@@ -1,23 +1,15 @@
--- local RagdollM = script.Parent
--- local ragdollCloneRE = RagdollM.RagdollCloneRE
--- local ragdollRE = RagdollM.RagdollRE
---
--- local camera = workspace.CurrentCamera :: Camera
---
--- ragdollCloneRE.OnClientEvent:Connect(function(humanoid: Humanoid)
---     camera.CameraSubject = humanoid
---     humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
---     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
---     humanoid:ChangeState(Enum.HumanoidStateType.PlatformStanding)
--- end)
---
--- ragdollRE.OnClientEvent:Connect(function(humanoid: Humanoid, enabled: boolean)
---     humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, enabled)
---     humanoid:SetStateEnabled(Enum.HumanoidStateType.GettingUp, enabled)
---     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, enabled)
---     if not enabled then
---         humanoid:ChangeState(Enum.HumanoidStateType.PlatformStanding)
---     else
---         humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
---     end
--- end)
+local RagdollClass = script.Parent
+local Ragdoller = RagdollClass.Parent
+local RagdollState = require(RagdollClass.RagdollState)
+
+repeat task.wait(0.1) until Ragdoller:FindFirstChild("RagdollRemote")
+
+local RagdollRemote = Ragdoller:FindFirstChild("RagdollRemote") :: RemoteEvent
+
+RagdollRemote.OnClientEvent:Connect(function(humanoid: Humanoid, isRagdoll: boolean)
+    if isRagdoll then
+        RagdollState:EnableRagdollState(humanoid)
+    else
+        RagdollState:DisableRagdollState(humanoid)
+    end
+end)
