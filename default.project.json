@@ -1,11 +1,6 @@
 {
   "name": "Ragdoller",
   "tree": {
-    "$className": "DataModel",
-    "ReplicatedStorage": {
-      "Shared": {
-        "$path": "src"
-      }
-    }
+    "$path": "src"
   }
 }

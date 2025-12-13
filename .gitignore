@@ -1,9 +1,6 @@
-# Project place file
-/Ragdoll_Module.rbxlx
+/*.rbxlx
 
-# Roblox Studio lock files
 /*.rbxlx.lock
 /*.rbxl.lock
 
-/Ragdoll.rbxm
 /selene.toml
