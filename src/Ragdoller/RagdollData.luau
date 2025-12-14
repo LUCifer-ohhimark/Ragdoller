@@ -20,6 +20,7 @@ ragdollData.Motors6D_R6 = {
 ragdollData.DefaultOpts = {
     RequiresNeck = true,
     LimbsCollidersEnabled = true,
+    BreakJointsOnDeath = false,
     ColliderSizeMultiplier = 0.5,
     IgnoredMotors6D = {}
 }

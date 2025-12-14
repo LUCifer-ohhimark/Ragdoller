@@ -47,7 +47,7 @@ end
 
 
 function ragdoll.Setup(self)
-    self.Humanoid.BreakJointsOnDeath = false
+    self.Humanoid.BreakJointsOnDeath = self.Options.BreakJointsOnDeath
     self.Humanoid.RequiresNeck = self.Options.RequiresNeck
     self.Humanoid:SetAttribute("IS_RAGDOLL", false)
 
@@ -112,6 +112,7 @@ end
 function ragdoll.ToggleMotor6D(self, enabled: boolean)
     local reservedMotors6D = {self.RootPart:FindFirstChild("RootJoint")}
     local neck: Motor6D = self.Torso:FindFirstChild("Neck")
+
     if self.Options.RequiresNeck then
         table.insert(reservedMotors6D, neck)
     else
@@ -161,6 +162,10 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
 end
 
 function ragdoll.Ragdoll(self)
+    local animator = self.Humanoid:FindFirstChild("Animator") :: Animator
+    for i, animTrack in animator:GetPlayingAnimationTracks() do
+        animTrack:Stop(0)
+    end
     if self.Player then
         local RagdollRemote = script:FindFirstChild("RagdollRemote")
         RagdollRemote:FireAllClients(self.Humanoid, true)
