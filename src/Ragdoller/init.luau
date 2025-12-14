@@ -27,10 +27,4 @@ function module:toggleRagdollCharacter(character: Model, enabled: boolean)
     module:ToggleRagdoll(character, enabled)
 end
 
-if not script:FindFirstChild("RagdollRemote") then
-    local remote = Instance.new("RemoteEvent")
-    remote.Name = "RagdollRemote"
-    remote.Parent = script.Ragdoll
-end
-
 return module
