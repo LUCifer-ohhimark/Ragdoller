@@ -162,10 +162,7 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
 end
 
 function ragdoll.Ragdoll(self)
-    local animator = self.Humanoid:FindFirstChild("Animator") :: Animator
-    for i, animTrack in animator:GetPlayingAnimationTracks() do
-        animTrack:Stop(0)
-    end
+    self.Humanoid.PlatformStand = true
     if self.Player then
         local RagdollRemote = script:FindFirstChild("RagdollRemote")
         RagdollRemote:FireAllClients(self.Humanoid, true)
@@ -174,7 +171,6 @@ function ragdoll.Ragdoll(self)
         self.RootPart:SetNetworkOwner(nil)
         RagdollState:EnableRagdollState(self.Humanoid)
     end
-    self.Humanoid.PlatformStand = true
     ragdoll.ToggleMotor6D(self, false)
 end
 
