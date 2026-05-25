@@ -7,15 +7,46 @@ if RunService:IsClient() then
     error("Ragdoller must be required in Server context, stupid.")
 end
 
-function module:CreateRagdoll(character, opts: {any}?) : RagdollClass.Ragdoll
+function module:CreateRagdoll(character: Model, opts: {any}?) : RagdollClass.Ragdoll
     local ragdoll = RagdollClass.new(character, opts)
     return ragdoll
 end
 
+function module:CreateRagdollType(
+    name: string,
+    motors6D: {string},
+    bodyParts: {string},
+    rootTorso: string,
+    rootJoint: string
+) : {
+        Name: string,
+        Motors6D: {string},
+        BodyParts: {string},
+        RootTorso: string,
+        Root: string,
+        RootJoint: string
+    }
+    Registry.RagdollTypes[name] = {
+        Name = name,
+        Motors6D = motors6D,
+        BodyParts = bodyParts,
+    }
+    return Registry.RagdollTypes[name]
+end
+
 function module:GetRagdoll(character: Model) : RagdollClass.Ragdoll
-    local ragdoll = Registry[character]
+    local ragdoll = Registry.Ragdolls[character]
     assert(ragdoll, `Ragdoll of {character} is nil`)
     return ragdoll
+end
+
+function module:GetRagdollType(character: Model)
+    local ragdollType = module:GetRagdoll(character).RagdollType
+    return ragdollType
+end
+
+function module:GetRagdollRegistry() : {any}
+    return Registry
 end
 
 function module:ToggleRagdoll(character: Model, enabled: boolean)

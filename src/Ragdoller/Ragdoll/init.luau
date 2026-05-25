@@ -12,7 +12,8 @@ export type Ragdoll = typeof(setmetatable({} :: {
     Ragdoll: (self: {}) -> (),
     UnRagdoll: (self: {}) -> (),
     ToggleMotor6D: (self: {}, enabled: boolean) -> (),
-    GetRagdollState: (self: {}) -> boolean
+    GetRagdollState: (self: {}) -> boolean,
+    RagdollType: nil
 }, ragdoll))
 
 local DEFAULT_OPTS = RagdollData.DefaultOpts
@@ -22,7 +23,6 @@ local function formatOpts(opts: {any}?)
     for opt, value in DEFAULT_OPTS do
         if opts[opt] == nil then opts[opt] = value end
     end
-
     return opts
 end
 
@@ -35,11 +35,9 @@ function ragdoll.new(character: Model, opts: {any}?)
     }, ragdoll)
 
     self.Player = Players:GetPlayerFromCharacter(self.Character)
-
     self.Humanoid = self.Character:FindFirstChildOfClass('Humanoid')
-
     self.RootPart = self.Character:FindFirstChild("HumanoidRootPart")
-    self.Torso = self.Character:FindFirstChild("Torso")
+    self.RagdollType = nil
 
     self:Setup()
     return self
@@ -51,15 +49,21 @@ function ragdoll.Setup(self)
     self.Humanoid.RequiresNeck = self.Options.RequiresNeck
     self.Humanoid:SetAttribute("IS_RAGDOLL", false)
 
-    Registry[self.Character] = self
+    if self.Options.RagdollType then
+        self.RagdollType = Registry.RagdollTypes[self.Options.RagdollType]
+    else
+        self.RagdollType = Registry.RagdollTypes[self.Humanoid.RigType.Name]
+    end
+
+    Registry.Ragdolls[self.Character] = self
 
     self.Character.Destroying:Once(function()
-        local id = table.find(Registry, self)
-        table.remove(Registry, id)
+        local id = table.find(Registry.Ragdolls, self)
+        table.remove(Registry.Ragdolls, id)
     end)
 
-    for _, v in RagdollData.BodyParts_R6 do
-        local bodyPart: BasePart = self.Character:FindFirstChild(v)
+    for _, bodyPartName in self.RagdollType.BodyParts do
+        local bodyPart: BasePart = self.Character:FindFirstChild(bodyPartName)
         local minSize = math.min(bodyPart.Size.X, bodyPart.Size.Y, bodyPart.Size.Z) * self.Options.ColliderSizeMultiplier
         local ragdollCollider = Instance.new("Part")
         ragdollCollider.Size = vector.create(minSize, minSize, minSize)
@@ -68,7 +72,7 @@ function ragdoll.Setup(self)
         ragdollCollider.CFrame = bodyPart.CFrame
         ragdollCollider.Transparency = 1
         ragdollCollider:AddTag("RAGDOLL_COLLIDER")
-        
+
         local weld = Instance.new("WeldConstraint")
         weld.Name = "RAGDOLL_WELD"
         weld.Part0 = ragdollCollider
@@ -78,8 +82,10 @@ function ragdoll.Setup(self)
         ragdollCollider.Parent = bodyPart
     end
 
-    for _, v in RagdollData.Motors6D_R6 do
-        local motor6D: Motor6D = self.Torso:FindFirstChild(v)
+    for _, motor6DName: string in self.RagdollType.Motors6D do
+        if typeof(motor6DName) ~= "string" then continue end
+        local motor6D = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{motor6DName}"]`))
+        assert(motor6D, `{motor6DName} is not found`)
         local part1 = motor6D.Part1 :: BasePart
 
         local attachment0 = Instance.new("Attachment")
@@ -110,45 +116,34 @@ function ragdoll.Setup(self)
 end
 
 function ragdoll.ToggleMotor6D(self, enabled: boolean)
-    local reservedMotors6D = {self.RootPart:FindFirstChild("RootJoint")}
-    local neck: Motor6D = self.Torso:FindFirstChild("Neck")
+    local reservedMotors6D = self.Character:QueryDescendants(`Motor6D[Name = Neck], Motor6D[Name = "{self.RagdollType.RootJoint}"]`)
 
-    if self.Options.RequiresNeck then
-        table.insert(reservedMotors6D, neck)
-    else
-        local id = table.find(reservedMotors6D, neck)
-        if id then table.remove(reservedMotors6D, id) end
+    if not self.Options.RequiresNeck then
+        table.remove(reservedMotors6D, table.find(reservedMotors6D, "Neck"))
     end
 
     if #self.Options.IgnoredMotors6D > 0 then
         for i, motor6D in self.Options.IgnoredMotors6D do
             if typeof(motor6D) == "string" then
-                local actualMotor6DTable = self.Character:QueryDescendants(`Motor6D[Name = {motor6D}]`)
-                assert(actualMotor6DTable, `{motor6D} is not found`) 
+                local actualMotor6DTable = self.Character:QueryDescendants(`Motor6D[Name = "{motor6D}"]`)
+                assert(actualMotor6DTable, `{motor6D} is not found`)
                 table.remove(self.Options.IgnoredMotors6D, i)
                 table.insert(self.Options.IgnoredMotors6D, table.unpack(actualMotor6DTable))
             end
         end
     end
 
-    local limbs = {
-        self.Character["Left Arm"],
-        self.Character["Right Arm"],
-        self.Character["Left Leg"],
-        self.Character["Right Leg"]
-    }
-
     for _, instance in self.Character:GetDescendants() do
         if instance:IsA("Motor6D") then
             if table.find(reservedMotors6D, instance) or table.find(self.Options.IgnoredMotors6D, instance)
                 or instance:HasTag("RAGDOLL_IGNORED") then
-                continue 
+                continue
             end
             instance.Enabled = enabled
         end
 
         if instance:IsA("BasePart") and instance:HasTag("RAGDOLL_COLLIDER") then
-            if table.find(limbs, instance.Parent) and not self.Options.LimbsCollidersEnabled then
+            if table.find(self.Options.NoCollideBodyParts, instance.Parent.Name) or instance:HasTag("RAGDOLL_NO_COLLISION") then
                 instance.CanCollide = false
             else
                 instance.CanCollide = not enabled
