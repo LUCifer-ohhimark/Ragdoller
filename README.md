@@ -3,13 +3,13 @@ Ragdoller is a ragdoll managing module, made initially for Roblox games by <a hr
 ## Installation
 Check out <a href = "https://github.com/LUCifer-ohhimark/Ragdoller/releases">releases</a> and download ```.rbxm``` file.
 ## Building from source
-You can build Ragdoller with <a href = "https://rojo.space">Rojo</a>:
+You can build Ragdoller with <a href = "https://rojo.space">Rojo</a> by using ```build.project.json``` template:
 ```
-rojo build -o Ragdoller.rbxm
+rojo build build.project.json -o Ragdoller.rbxm
 ```
-You can also sync it with place, although you need to sync with ```src.project.json``` template:
+You can also sync it with your place:
 ```
-rojo serve src.project.json
+rojo serve
 ```
 ## About documentation
 Documentation is not done yet... :/

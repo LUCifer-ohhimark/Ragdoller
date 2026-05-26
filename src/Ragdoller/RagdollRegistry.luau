@@ -7,18 +7,21 @@ local neckR15Properties = {
 }
 
 local wristR15Properties = {
+    JointType = "Hinge",
     UpperAngle = 0,
-    TwistAngles = {0, 0}
+    LowerAngle = 0
 }
 
 local kneeR15Properties = {
+    JointType = "Hinge",
     UpperAngle = 0,
-    TwistAngles = {-75, 0}
+    LowerAngle = -75
 }
 
 local ankleR15Properties = {
+    JointType = "Hinge",
     UpperAngle = 15,
-    TwistAngles = {-45, 15}
+    LowerAngle = -45
 }
 
 local registry = {
@@ -54,10 +57,8 @@ local registry = {
                 'RightFoot',
                 'LeftUpperArm',
                 'RightUpperArm',
-                'LeftLowerArm',
-                'RightLowerArm',
                 'LeftHand',
-                'RightHand'
+                'RightHand',
             },
             Motors6D = {
                 Neck = neckR15Properties,

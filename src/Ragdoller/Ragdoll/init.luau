@@ -90,6 +90,7 @@ function ragdoll.Setup(self)
     } in self.RagdollType.Motors6D do
         local motor6D = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{motor6DName}"]`))
         assert(motor6D, `{motor6DName} is not found`)
+        local part0 = motor6D.Part0 :: BasePart
         local part1 = motor6D.Part1 :: BasePart
 
         local attachment0 = Instance.new("Attachment")
@@ -100,10 +101,10 @@ function ragdoll.Setup(self)
         attachment1.CFrame = motor6D.C1
         attachment1.Name = `RAGDOLL_ATTACHMENT_{string.upper(part1.Name:gsub(" ", "_"))}`
 
-        attachment0.Parent = self.RootPart
+        attachment0.Parent = part0
         attachment1.Parent = part1
 
-        if (jointProperties and jointProperties ~= {}) and jointProperties.JointType:lower() == "Hinge" then
+        if (jointProperties and jointProperties ~= {}) and (jointProperties.JointType and jointProperties.JointType:lower() == "hinge") then
             local ragdollHinge = Instance.new("HingeConstraint")
             ragdollHinge.Name = "RAGDOLL_HINGE"
             ragdollHinge.Attachment0 = attachment0
@@ -129,10 +130,14 @@ function ragdoll.Setup(self)
                 if jointProperties.UpperAngle or jointProperties.TwistAngles then
                     ragdollBallSocket.LimitsEnabled = true
                 end
-                ragdollBallSocket.TwistLimitsEnabled = jointProperties.TwistAngles ~= nil
-                ragdollBallSocket.TwistUpperAngle = jointProperties.TwistAngles and jointProperties.TwistAngles[2]
-                ragdollBallSocket.TwistLowerAngle = jointProperties.TwistAngles and jointProperties.TwistAngles[1]
-                ragdollBallSocket.UpperAngle = jointProperties.UpperAngle ~= nil and jointProperties.UpperAngle
+                if jointProperties.TwistAngles then
+                    ragdollBallSocket.TwistLimitsEnabled = true
+                    ragdollBallSocket.TwistUpperAngle = jointProperties.TwistAngles[2]
+                    ragdollBallSocket.TwistLowerAngle = jointProperties.TwistAngles[1]
+                end
+                if jointProperties.UpperAngle then
+                    ragdollBallSocket.UpperAngle = jointProperties.UpperAngle
+                end
             end
 
             ragdollBallSocket.Parent = part1
