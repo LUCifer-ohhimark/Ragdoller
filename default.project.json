@@ -1,6 +1,13 @@
 {
-  "name": "Ragdoller",
-  "tree": {
-    "$path": "src"
-  }
+    "name": "Ragdoller",
+    "tree": {
+        "$className": "DataModel",
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "__bin": {
+                "$className": "Folder",
+                "$path": "src"
+            }
+        }
+    }
 }

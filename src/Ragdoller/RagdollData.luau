@@ -6,7 +6,7 @@ ragdollData.DefaultOpts = {
     ColliderSizeMultiplier = 0.5,
     IgnoredMotors6D = {},
     NoCollideBodyParts = {},
-    RagdollType = nil
+    RagdollType = nil,
 }
 
 return ragdollData

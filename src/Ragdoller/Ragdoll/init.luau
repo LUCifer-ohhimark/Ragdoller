@@ -18,7 +18,7 @@ export type Ragdoll = typeof(setmetatable({} :: {
 
 local DEFAULT_OPTS = RagdollData.DefaultOpts
 
-local function formatOpts(opts: {any}?)
+local function formatOpts(opts: {any}?) : {any}
     if not opts then return DEFAULT_OPTS end
     for opt, value in DEFAULT_OPTS do
         if opts[opt] == nil then opts[opt] = value end
@@ -26,7 +26,7 @@ local function formatOpts(opts: {any}?)
     return opts
 end
 
-function ragdoll.new(character: Model, opts: {any}?)
+function ragdoll.new(character: Model, opts: {any}?) : Ragdoll
     opts = formatOpts(opts)
 
     local self = setmetatable({
@@ -82,8 +82,12 @@ function ragdoll.Setup(self)
         ragdollCollider.Parent = bodyPart
     end
 
-    for _, motor6DName: string in self.RagdollType.Motors6D do
-        if typeof(motor6DName) ~= "string" then continue end
+    for motor6DName: string, jointProperties: {
+        TwistAngles: {number},
+        UpperAngle: number,
+        JointType: string,
+        LowerAngle: number
+    } in self.RagdollType.Motors6D do
         local motor6D = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{motor6DName}"]`))
         assert(motor6D, `{motor6DName} is not found`)
         local part1 = motor6D.Part1 :: BasePart
@@ -96,22 +100,43 @@ function ragdoll.Setup(self)
         attachment1.CFrame = motor6D.C1
         attachment1.Name = `RAGDOLL_ATTACHMENT_{string.upper(part1.Name:gsub(" ", "_"))}`
 
-        local ragdollBallSocket = Instance.new("BallSocketConstraint")
-        ragdollBallSocket.Name = "RAGDOLL_BALL_SOCKET"
-        ragdollBallSocket.Attachment0 = attachment0
-        ragdollBallSocket.Attachment1 = attachment1
-        ragdollBallSocket:AddTag("RAGDOLL_BALL_SOCKET")
-
-        ragdollBallSocket.LimitsEnabled = true
-        ragdollBallSocket.TwistLimitsEnabled = true
-        ragdollBallSocket.TwistUpperAngle = 45
-        ragdollBallSocket.TwistLowerAngle = -45
-
-        ragdollBallSocket.UpperAngle = part1 == self.Character:FindFirstChild("Head") and 45 or 90
-
         attachment0.Parent = self.RootPart
         attachment1.Parent = part1
-        ragdollBallSocket.Parent = part1
+
+        if (jointProperties and jointProperties ~= {}) and jointProperties.JointType:lower() == "Hinge" then
+            local ragdollHinge = Instance.new("HingeConstraint")
+            ragdollHinge.Name = "RAGDOLL_HINGE"
+            ragdollHinge.Attachment0 = attachment0
+            ragdollHinge.Attachment1 = attachment1
+            ragdollHinge:AddTag("RAGDOLL_JOINT")
+            if jointProperties.UpperAngle or jointProperties.LowerAngle then
+                ragdollHinge.LimitsEnabled = true
+            end
+            ragdollHinge.UpperAngle = jointProperties.UpperAngle or 45
+            ragdollHinge.LowerAngle = jointProperties.LowerAngle or -45
+            ragdollHinge.Parent = part1
+        else
+            local ragdollBallSocket = Instance.new("BallSocketConstraint")
+            ragdollBallSocket.Name = "RAGDOLL_BALL_SOCKET"
+            ragdollBallSocket.Attachment0 = attachment0
+            ragdollBallSocket.Attachment1 = attachment1
+            ragdollBallSocket:AddTag("RAGDOLL_JOINT")
+
+            ragdollBallSocket.LimitsEnabled = true
+            ragdollBallSocket.TwistLimitsEnabled = true
+
+            if jointProperties and jointProperties ~= {} then
+                if jointProperties.UpperAngle or jointProperties.TwistAngles then
+                    ragdollBallSocket.LimitsEnabled = true
+                end
+                ragdollBallSocket.TwistLimitsEnabled = jointProperties.TwistAngles ~= nil
+                ragdollBallSocket.TwistUpperAngle = jointProperties.TwistAngles and jointProperties.TwistAngles[2]
+                ragdollBallSocket.TwistLowerAngle = jointProperties.TwistAngles and jointProperties.TwistAngles[1]
+                ragdollBallSocket.UpperAngle = jointProperties.UpperAngle ~= nil and jointProperties.UpperAngle
+            end
+
+            ragdollBallSocket.Parent = part1
+        end
     end
 end
 
@@ -143,14 +168,14 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
         end
 
         if instance:IsA("BasePart") and instance:HasTag("RAGDOLL_COLLIDER") then
-            if table.find(self.Options.NoCollideBodyParts, instance.Parent.Name) or instance:HasTag("RAGDOLL_NO_COLLISION") then
+            if table.find(self.Options.NoCollideBodyParts, instance.Parent.Name) or instance.Parent:HasTag("RAGDOLL_NO_COLLISION") then
                 instance.CanCollide = false
             else
                 instance.CanCollide = not enabled
             end
         end
 
-        if instance:IsA("BallSocketConstraint") and instance:HasTag("RAGDOLL_BALL_SOCKET") then
+        if (instance:IsA("BallSocketConstraint") or instance:IsA("HingeConstraint")) and instance:HasTag("RAGDOLL_JOINT") then
             instance.Enabled = not enabled
         end
     end
@@ -181,7 +206,7 @@ function ragdoll.UnRagdoll(self)
     ragdoll.ToggleMotor6D(self, true)
 end
 
-function ragdoll.GetRagdollState(self)
+function ragdoll.GetRagdollState(self) : boolean
     return self.Humanoid:GetAttribute("IS_RAGDOLL")
 end
 

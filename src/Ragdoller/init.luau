@@ -14,18 +14,23 @@ end
 
 function module:CreateRagdollType(
     name: string,
-    motors6D: {string},
+    motors6D: {any},
     bodyParts: {string},
-    rootTorso: string,
     rootJoint: string
 ) : {
         Name: string,
-        Motors6D: {string},
+        Motors6D: {any},
         BodyParts: {string},
-        RootTorso: string,
-        Root: string,
         RootJoint: string
     }
+
+    for index, value in motors6D do
+        if typeof(value) == "string" then
+            table.remove(motors6D, index)
+            motors6D[value] = {}
+        end
+    end
+
     Registry.RagdollTypes[name] = {
         Name = name,
         Motors6D = motors6D,
@@ -40,7 +45,13 @@ function module:GetRagdoll(character: Model) : RagdollClass.Ragdoll
     return ragdoll
 end
 
-function module:GetRagdollType(character: Model)
+function module:GetRagdollType(character: Model) :
+    { 
+        Name: string,
+        Motors6D: {any},
+        BodyParts: {string}, 
+        RootJoint: string 
+    }
     local ragdollType = module:GetRagdoll(character).RagdollType
     return ragdollType
 end
