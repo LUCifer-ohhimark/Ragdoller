@@ -2,47 +2,92 @@ local Players = game:GetService("Players")
 local RagdollState = require(script.RagdollState)
 local RagdollData = require(script.Parent.RagdollData)
 local Registry = require(script.Parent.RagdollRegistry)
+local RagdollJoints = require(script.RagdollJoints)
+local Types = require(script.Parent.Types)
+
 local ragdoll = {}
 ragdoll.__index = ragdoll
 
 export type Ragdoll = typeof(setmetatable({} :: {
     Character: Model,
-    Options: {any},
+    Options: Types.RagdollOptions,
     Player: Player,
     Ragdoll: (self: {}) -> (),
     UnRagdoll: (self: {}) -> (),
     ToggleMotor6D: (self: {}, enabled: boolean) -> (),
     GetRagdollState: (self: {}) -> boolean,
-    RagdollType: nil
+    RagdollType: Types.RagdollType,
+    RagdollAttachments: { Attachment },
+    RagdollJoints: { any },
+    RagdollColliders: { BasePart }
 }, ragdoll))
 
 local DEFAULT_OPTS = RagdollData.DefaultOpts
+local DEFAULT_JOINT_PROPS = RagdollData.DefaultJointProperties
 
-local function formatOpts(opts: {any}?) : {any}
-    if not opts then return DEFAULT_OPTS end
-    for opt, value in DEFAULT_OPTS do
-        if opts[opt] == nil then opts[opt] = value end
+local function formatJointProperties(jointProperties: Types.JointProperties) : Types.JointProperties
+    local _jointProperties = {}
+    if not jointProperties then return DEFAULT_JOINT_PROPS end
+    for prop, value in DEFAULT_JOINT_PROPS do
+        if not jointProperties[prop] then
+            _jointProperties[prop] = value
+        end
     end
-    return opts
+    for prop, value in jointProperties do
+        if not _jointProperties[prop] then
+            _jointProperties[prop] = jointProperties[prop]
+        end
+    end
+    return _jointProperties
 end
 
-function ragdoll.new(character: Model, opts: {any}?) : Ragdoll
+local function formatOpts(opts: { Types.RagdollOptions }?) : Types.RagdollOptions
+    local _opts = {}
+    if not opts then return DEFAULT_OPTS end
+    for opt, value in DEFAULT_OPTS do
+        if not opts[opt] then
+            _opts[opt] = value
+        end
+    end
+
+    for opt, value in opts do
+        if not _opts[opt] then
+            _opts[opt] = value
+        end
+    end
+
+    return _opts
+end
+
+--[=[
+    Creates ragdoll for character
+--]=]
+function ragdoll.new(character: Model, opts: { Types.RagdollOptions }?) : Ragdoll
     opts = formatOpts(opts)
 
     local self = setmetatable({
         Character = character,
-        Options = opts
+        Options = opts,
+        RagdollAttachments = {},
+        RagdollJoints = {},
+        RagdollColliders = {}
     }, ragdoll)
 
     self.Player = Players:GetPlayerFromCharacter(self.Character)
     self.Humanoid = self.Character:FindFirstChildOfClass('Humanoid')
     self.RootPart = self.Character:FindFirstChild("HumanoidRootPart")
-    self.RagdollType = nil
 
     self:Setup()
     return self
 end
 
+function ragdoll.GetBallSocket(self, socketName: string)
+    return table.unpack(self.Character:QueryDescendants(`BallSocketConstraint[Name = "{socketName}" ]`))
+end
+
+function ragdoll.GetHinge(self, hingeName: string)
+    return table.unpack(self.Character:QueryDescendants(`HingeConstraint[Name = "{hingeName}" ]`))
+end
 
 function ragdoll.Setup(self)
     self.Humanoid.BreakJointsOnDeath = self.Options.BreakJointsOnDeath
@@ -50,7 +95,11 @@ function ragdoll.Setup(self)
     self.Humanoid:SetAttribute("IS_RAGDOLL", false)
 
     if self.Options.RagdollType then
-        self.RagdollType = Registry.RagdollTypes[self.Options.RagdollType]
+        if typeof(self.Options.RagdollType) == "string" then
+            self.RagdollType = Registry.RagdollTypes[self.Options.RagdollType]
+        else
+            self.RagdollType = self.Options.RagdollType
+        end
     else
         self.RagdollType = Registry.RagdollTypes[self.Humanoid.RigType.Name]
     end
@@ -58,8 +107,7 @@ function ragdoll.Setup(self)
     Registry.Ragdolls[self.Character] = self
 
     self.Character.Destroying:Once(function()
-        local id = table.find(Registry.Ragdolls, self)
-        table.remove(Registry.Ragdolls, id)
+        Registry.Ragdolls[self.Character] = nil
     end)
 
     for _, bodyPartName in self.RagdollType.BodyParts do
@@ -78,95 +126,97 @@ function ragdoll.Setup(self)
         weld.Part0 = ragdollCollider
         weld.Part1 = bodyPart
 
+        table.insert(self.RagdollColliders, ragdollCollider)
+
         weld.Parent = ragdollCollider
         ragdollCollider.Parent = bodyPart
     end
 
-    for motor6DName: string, jointProperties: {
-        TwistAngles: {number},
-        UpperAngle: number,
-        JointType: string,
-        LowerAngle: number
-    } in self.RagdollType.Motors6D do
-        local motor6D = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{motor6DName}"]`))
-        assert(motor6D, `{motor6DName} is not found`)
-        local part0 = motor6D.Part0 :: BasePart
-        local part1 = motor6D.Part1 :: BasePart
+    for rigJointName: string, jointProperties: Types.JointProperties in self.RagdollType.RigJoints do
+        jointProperties = formatJointProperties(jointProperties)
+        local attachment0, attachment1, _part0, part1
+        local ragdollJoint
+        local rigJoint = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{rigJointName}"]`)) or table.unpack(self.Character:QueryDescendants(`AnimationConstraint[Name = "{rigJointName}"]`))
 
-        local attachment0 = Instance.new("Attachment")
-        attachment0.CFrame = motor6D.C0
-        attachment0.Name = `RAGDOLL_ATTACHMENT_{string.upper(part1.Name:gsub(" ", "_"))}`
-
-        local attachment1 = Instance.new("Attachment")
-        attachment1.CFrame = motor6D.C1
-        attachment1.Name = `RAGDOLL_ATTACHMENT_{string.upper(part1.Name:gsub(" ", "_"))}`
-
-        attachment0.Parent = part0
-        attachment1.Parent = part1
-
-        if (jointProperties and jointProperties ~= {}) and (jointProperties.JointType and jointProperties.JointType:lower() == "hinge") then
-            local ragdollHinge = Instance.new("HingeConstraint")
-            ragdollHinge.Name = "RAGDOLL_HINGE"
-            ragdollHinge.Attachment0 = attachment0
-            ragdollHinge.Attachment1 = attachment1
-            ragdollHinge:AddTag("RAGDOLL_JOINT")
-            if jointProperties.UpperAngle or jointProperties.LowerAngle then
-                ragdollHinge.LimitsEnabled = true
+        if not jointProperties.Name then
+            local formattedName = rigJoint.Name:gsub(" ", "_") 
+            if jointProperties.JointType:lower() == "hinge" then
+                jointProperties.Name = `RAGDOLL_HINGE_{string.upper(formattedName)}`
+            elseif jointProperties.JointType:lower() == "ballsocket" then
+                jointProperties.Name = `RAGDOLL_BALL_SOCKET_{string.upper(formattedName)}`
             end
-            ragdollHinge.UpperAngle = jointProperties.UpperAngle or 45
-            ragdollHinge.LowerAngle = jointProperties.LowerAngle or -45
-            ragdollHinge.Parent = part1
+        end
+
+        if rigJoint:IsA("AnimationConstraint") then
+            attachment0 = rigJoint.Attachment0
+            attachment1 = rigJoint.Attachment1
+            ragdollJoint = self.GetBallSocket(self, jointProperties.Name)
+            if ragdollJoint then
+                ragdollJoint:AddTag("RAGDOLL_JOINT")
+            end
         else
-            local ragdollBallSocket = Instance.new("BallSocketConstraint")
-            ragdollBallSocket.Name = "RAGDOLL_BALL_SOCKET"
-            ragdollBallSocket.Attachment0 = attachment0
-            ragdollBallSocket.Attachment1 = attachment1
-            ragdollBallSocket:AddTag("RAGDOLL_JOINT")
+            attachment0, attachment1, _part0, part1 = RagdollJoints:MakeRagdollAttachments(rigJoint)
+            table.insert(self.RagdollAttachments, attachment0)
+            table.insert(self.RagdollAttachments, attachment1)
+            ragdollJoint = self.GetBallSocket(self, jointProperties.Name) or self.GetHinge(self, jointProperties.Name)
 
-            ragdollBallSocket.LimitsEnabled = true
-            ragdollBallSocket.TwistLimitsEnabled = true
-
-            if jointProperties and jointProperties ~= {} then
-                if jointProperties.UpperAngle or jointProperties.TwistAngles then
-                    ragdollBallSocket.LimitsEnabled = true
-                end
-                if jointProperties.TwistAngles then
-                    ragdollBallSocket.TwistLimitsEnabled = true
-                    ragdollBallSocket.TwistUpperAngle = jointProperties.TwistAngles[2]
-                    ragdollBallSocket.TwistLowerAngle = jointProperties.TwistAngles[1]
-                end
-                if jointProperties.UpperAngle then
-                    ragdollBallSocket.UpperAngle = jointProperties.UpperAngle
+            if ragdollJoint then
+                ragdollJoint:AddTag("RAGDOLL_JOINT")
+            else
+                if jointProperties.JointType:lower() == "hinge" then
+                    ragdollJoint = RagdollJoints:MakeHinge(attachment0, attachment1, jointProperties.Name, part1, jointProperties)
+                    table.insert(self.RagdollJoints, ragdollJoint)
+                elseif jointProperties.JointType:lower() == "ballsocket" then
+                    ragdollJoint = RagdollJoints:MakeBallSocket(attachment0, attachment1, jointProperties.Name, part1, jointProperties)
+                    table.insert(self.RagdollJoints, ragdollJoint)
                 end
             end
-
-            ragdollBallSocket.Parent = part1
         end
     end
 end
 
-function ragdoll.ToggleMotor6D(self, enabled: boolean)
-    local reservedMotors6D = self.Character:QueryDescendants(`Motor6D[Name = Neck], Motor6D[Name = "{self.RagdollType.RootJoint}"]`)
+function ragdoll.ToggleRigJoint(self, enabled: boolean)
+    local reservedMotors6D = self.Character:QueryDescendants(
+        `Motor6D[Name = Neck], Motor6D[Name = "{self.RagdollType.RootJoint}"], AnimationConstraint[Name = Neck], AnimationConstraint[Name = "{self.RagdollType.RootJoint}"]`
+    )
 
     if not self.Options.RequiresNeck then
         table.remove(reservedMotors6D, table.find(reservedMotors6D, "Neck"))
     end
 
     if #self.Options.IgnoredMotors6D > 0 then
+        local actualMotor6DTable = {}
         for i, motor6D in self.Options.IgnoredMotors6D do
             if typeof(motor6D) == "string" then
-                local actualMotor6DTable = self.Character:QueryDescendants(`Motor6D[Name = "{motor6D}"]`)
-                assert(actualMotor6DTable, `{motor6D} is not found`)
-                table.remove(self.Options.IgnoredMotors6D, i)
-                table.insert(self.Options.IgnoredMotors6D, table.unpack(actualMotor6DTable))
+                local motors6D = self.Character:QueryDescendants(`Motor6D[Name = "{motor6D}"]`)
+                assert(motors6D, `{motor6D} is not found`)
+                for i, v in motors6D do
+                    table.insert(actualMotor6DTable, v)
+                end
             end
         end
+        table.clear(self.Options.IgnoredMotors6D)
+        self.Options.IgnoredMotors6D = actualMotor6DTable
+    end
+    
+    if #self.Options.IgnoredRigJoints > 0 then
+        local actualRigJointTable = {}
+        for i, rigJoint in self.Options.IgnoredRigJoints do
+            if typeof(rigJoint) == "string" then
+                local rigJoints = self.Character:QueryDescendants(`Motor6D[Name = "{rigJoint}"], AnimationConstraint[Name = "{rigJoint}"]`)
+                assert(rigJoints, `{rigJoint} is not found`)
+                for i, v in rigJoints do
+                    table.insert(actualRigJointTable, v)
+                end
+            end
+        end
+        table.clear(self.Options.IgnoredRigJoints)
+        self.Options.IgnoredRigJoints = actualRigJointTable
     end
 
     for _, instance in self.Character:GetDescendants() do
-        if instance:IsA("Motor6D") then
-            if table.find(reservedMotors6D, instance) or table.find(self.Options.IgnoredMotors6D, instance)
-                or instance:HasTag("RAGDOLL_IGNORED") then
+        if instance:IsA("Motor6D") or instance:IsA("AnimationConstraint") then
+            if table.find(reservedMotors6D, instance) or table.find(self.Options.IgnoredMotors6D, instance) or table.find(self.Options.IgnoredRigJoints, instance) or instance:HasTag("RAGDOLL_IGNORED") then
                 continue
             end
             instance.Enabled = enabled
@@ -186,6 +236,9 @@ function ragdoll.ToggleMotor6D(self, enabled: boolean)
     end
 end
 
+--[=[
+    Enables ragdoll state for character
+]=]
 function ragdoll.Ragdoll(self)
     self.Humanoid.PlatformStand = true
     if self.Player then
@@ -196,9 +249,12 @@ function ragdoll.Ragdoll(self)
         self.RootPart:SetNetworkOwner(nil)
         RagdollState:EnableRagdollState(self.Humanoid)
     end
-    ragdoll.ToggleMotor6D(self, false)
+    ragdoll.ToggleRigJoint(self, false)
 end
 
+--[=[
+    Disables ragdoll state for character
+]=]
 function ragdoll.UnRagdoll(self)
     self.Humanoid.PlatformStand = false
     if self.Player then
@@ -208,11 +264,14 @@ function ragdoll.UnRagdoll(self)
     else
         RagdollState:DisableRagdollState(self.Humanoid)
     end
-    ragdoll.ToggleMotor6D(self, true)
+    ragdoll.ToggleRigJoint(self, true)
 end
 
+--[=[
+    Returns ragdoll state for character
+]=]
 function ragdoll.GetRagdollState(self) : boolean
-    return self.Humanoid:GetAttribute("IS_RAGDOLL")
+    return self.Humanoid:GetAttribute("RAGDOLL_IS_RAGDOLLED")
 end
 
 return ragdoll

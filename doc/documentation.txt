@@ -1,0 +1,80 @@
+=========================================================================================
+
+RAGDOLLER
+
+Ragdoll physics yay
+
+=========================================================================================
+
+FEATURES:
+- Creating Ragdolls with custom options
+- Configuring Ragdoll's joints
+- Creating Ragdoll Types
+- Creating Ragdoll Clones with timeout
+
+USAGE:
+It's simple. Just require it on server.
+>lua
+    local Ragdoller = require(YourContainer.Ragdoller)
+<
+
+To work with Ragdolls, you need to create them
+>lua
+    local ragdoll = Ragdoller:CreateRagdoll(
+    character, --Model of character
+    opts --Table of Ragdoll options
+    ) 
+<
+
+Module provides custom options, default options are:
+
+    RequiresNeck = true, --Defines if having Neck motor is necessary
+    BreakJointsOnDeath = false, --Breaks joints on death, basically R6 default death
+    ColliderSizeMultiplier = 0.5, --Multiplier for ragdoll colliders
+    IgnoredRigJoints = {}, --Motors6D/AnimationConstraints to be ignored by Ragdoller
+    IgnoredMotors6D = {}, --Motors6D to be ignored by Ragdoller
+    NoCollideBodyParts = {}, --Body parts to their ragdoll colliders to be ignored
+    RagdollType = nil, --Character's Ragdoll Type, can be Ragdoll Type itself or its string name
+
+To toggle Ragdoll, use:
+>lua
+    Ragdoller:ToggleRagdoll(
+    character, --Model of character
+    enabled, --Boolean which defines Ragdoll state of character
+    )
+<
+
+You can create a custom Ragdoll Type,
+
+>lua
+    local ragdollType = Ragdoller:CreateRagdollType(
+    name, --String name of Ragdoll Type
+    rigJoints, --Table of string Motor6D/AnimationConstraint names, or key-value tables with joint properties (Joint = {...})
+    bodyParts, --Table of string body part names  
+    rootJoint --String name of root Motor6D/AnimationConstraint
+    )
+<
+
+Default joint properties are:
+
+    JointType = "BallSocket", --Type of Ragdoll Constraint. Can be a ball socket (all-axis) or hinge (single-axis)
+    TwistLimitsEnabled = true, --Property for ball socket
+    LimitsEnabled = true,
+    TwistAngles =  {-45, 45}, --Property for ball socket
+    UpperAngle = 45,
+    MaxFrictionTorque = 0, --Property for ball socket
+    Restitution = 0,
+    LowerAngle = -45 --Property for hinge
+
+Rest of properties without description are used for both joint types
+
+Clones can also be created
+>lua
+    local ragdollClone = Ragdoller:CreateRagdollClone(
+    character, --Model of character
+    parent, --Parent for clone
+    opts, --Table of Ragdoll options
+    cframe, --CFrame for clone, cframe of character by default
+    timeout --Time for clone to self-destroy, in seconds
+    )
+<

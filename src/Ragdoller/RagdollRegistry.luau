@@ -1,27 +1,5 @@
-local waistR15Properties = {
-    UpperAngle = 5
-}
-
-local neckR15Properties = {
-    UpperAngle = 15
-}
-
-local wristR15Properties = {
-    JointType = "Hinge",
-    UpperAngle = 0,
-    LowerAngle = 0
-}
-
-local kneeR15Properties = {
-    JointType = "Hinge",
-    UpperAngle = 0,
-    LowerAngle = -75
-}
-
-local ankleR15Properties = {
-    JointType = "Hinge",
-    UpperAngle = 15,
-    LowerAngle = -45
+local bodyR6Properties = {
+    UpperAngle = 90
 }
 
 local registry = {
@@ -29,12 +7,12 @@ local registry = {
     RagdollTypes = {
         R6 = {
             Name = "R6",
-            Motors6D = {
+            RigJoints = {
                 Neck = {},
-                ['Left Hip'] = { UpperAngle = 90 },
-                ['Right Hip'] = { UpperAngle = 90 },
-                ['Left Shoulder'] = { UpperAngle = 90 },
-                ['Right Shoulder'] = { UpperAngle = 90 }
+                ['Left Hip'] = bodyR6Properties,
+                ['Right Hip'] = bodyR6Properties,
+                ['Left Shoulder'] = bodyR6Properties,
+                ['Right Shoulder'] = bodyR6Properties,
             },
             BodyParts = {
                 'Torso',
@@ -60,21 +38,81 @@ local registry = {
                 'LeftHand',
                 'RightHand',
             },
-            Motors6D = {
-                Neck = neckR15Properties,
-                Waist = waistR15Properties,
+            RigJoints = {
+                Neck = {
+                    Name = "NeckBallSocket"
+                },
+                Waist = {
+                    Name = "WaistBallSocket"
+                },
+                LeftHip = {
+                    Name = "LeftHipBallSocket"
+                },
+                RightHip = {
+                    Name = "RightHipBallSocket"
+                },
+                LeftKnee = {
+                    Name = "LeftKneeBallSocket"
+                },
+                RightKnee = {
+                    Name = "RightKneeBallSocket"
+                },
+                LeftAnkle = {
+                    Name = "LeftAnkleBallSocket"
+                },
+                RightAnkle = {
+                    Name = "RightAnkleBallSocket"
+                },
+                LeftShoulder = {
+                    Name = "LeftShoulderBallSocket"
+                },
+                RightShoulder = {
+                    Name = "RightShoulderBallSocket"
+                },
+                LeftElbow = {
+                    Name = "LeftElbowBallSocket"
+                },
+                RightElbow = {
+                    Name = "RightElbowBallSocket"
+                },
+                LeftWrist = {
+                    Name = "LeftWristBallSocket"
+                },
+                RightWrist = {
+                    Name = "RightWristBallSocket"
+                },
+            },
+            RootJoint = "Root"
+        },
+        R15_Motor6D = {
+            Name = "R15_Motor6D",
+            BodyParts = {
+                'UpperTorso',
+                'Head',
+                'LeftUpperLeg',
+                'RightUpperLeg',
+                'LeftFoot',
+                'RightFoot',
+                'LeftUpperArm',
+                'RightUpperArm',
+                'LeftHand',
+                'RightHand',
+            },
+            RigJoints = {
+                Neck = {},
+                Waist = {},
                 LeftHip = {},
                 RightHip = {},
-                LeftKnee = kneeR15Properties,
-                RightKnee = kneeR15Properties,
-                LeftAnkle = ankleR15Properties,
-                RightAnkle = ankleR15Properties,
+                LeftKnee = {},
+                RightKnee = {},
+                LeftAnkle = {},
+                RightAnkle = {},
                 LeftShoulder = {},
                 RightShoulder = {},
                 LeftElbow = {},
                 RightElbow = {},
-                LeftWrist = wristR15Properties,
-                RightWrist = wristR15Properties,
+                LeftWrist = {},
+                RightWrist = {},
             },
             RootJoint = "Root"
         }
