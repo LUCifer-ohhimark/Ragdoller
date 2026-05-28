@@ -12,5 +12,5 @@ You can also sync it with your place:
 rojo serve
 ```
 ## About documentation
-Documentation is not done yet... :/
+See (<a href = "https://github.com/LUCifer-ohhimark/Ragdoller/blob/main/doc/documentation.txt">documentation.txt</a>)
 
