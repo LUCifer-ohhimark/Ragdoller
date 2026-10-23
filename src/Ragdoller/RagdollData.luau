@@ -3,6 +3,7 @@ local ragdollData = {}
 ragdollData.DefaultOpts = {
     RequiresNeck = true,
     BreakJointsOnDeath = false,
+    RagdollType = nil,
     ColliderSizeMultiplier = 0.5,
     IgnoredRigJoints = {},
     IgnoredMotors6D = {},

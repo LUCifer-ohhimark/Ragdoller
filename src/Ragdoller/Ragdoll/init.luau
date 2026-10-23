@@ -4,6 +4,7 @@ local RagdollData = require(script.Parent.RagdollData)
 local Registry = require(script.Parent.RagdollRegistry)
 local RagdollJoints = require(script.RagdollJoints)
 local Types = require(script.Parent.Types)
+local Utils = require(script.Parent.Utils)
 
 local ragdoll = {}
 ragdoll.__index = ragdoll
@@ -25,45 +26,11 @@ export type Ragdoll = typeof(setmetatable({} :: {
 local DEFAULT_OPTS = RagdollData.DefaultOpts
 local DEFAULT_JOINT_PROPS = RagdollData.DefaultJointProperties
 
-local function formatJointProperties(jointProperties: Types.JointProperties) : Types.JointProperties
-    local _jointProperties = {}
-    if not jointProperties then return DEFAULT_JOINT_PROPS end
-    for prop, value in DEFAULT_JOINT_PROPS do
-        if not jointProperties[prop] then
-            _jointProperties[prop] = value
-        end
-    end
-    for prop, value in jointProperties do
-        if not _jointProperties[prop] then
-            _jointProperties[prop] = jointProperties[prop]
-        end
-    end
-    return _jointProperties
-end
-
-local function formatOpts(opts: { Types.RagdollOptions }?) : Types.RagdollOptions
-    local _opts = {}
-    if not opts then return DEFAULT_OPTS end
-    for opt, value in DEFAULT_OPTS do
-        if not opts[opt] then
-            _opts[opt] = value
-        end
-    end
-
-    for opt, value in opts do
-        if not _opts[opt] then
-            _opts[opt] = value
-        end
-    end
-
-    return _opts
-end
-
 --[=[
     Creates ragdoll for character
 --]=]
 function ragdoll.new(character: Model, opts: { Types.RagdollOptions }?) : Ragdoll
-    opts = formatOpts(opts)
+    opts = Utils:FormatTable(opts, DEFAULT_OPTS)
 
     local self = setmetatable({
         Character = character,
@@ -92,7 +59,7 @@ end
 function ragdoll.Setup(self)
     self.Humanoid.BreakJointsOnDeath = self.Options.BreakJointsOnDeath
     self.Humanoid.RequiresNeck = self.Options.RequiresNeck
-    self.Humanoid:SetAttribute("IS_RAGDOLL", false)
+    self.Humanoid:SetAttribute("RAGDOLL_IS_RAGDOLLED", false)
 
     if self.Options.RagdollType then
         if typeof(self.Options.RagdollType) == "string" then
@@ -133,7 +100,7 @@ function ragdoll.Setup(self)
     end
 
     for rigJointName: string, jointProperties: Types.JointProperties in self.RagdollType.RigJoints do
-        jointProperties = formatJointProperties(jointProperties)
+        jointProperties = Utils:FormatTable(jointProperties, DEFAULT_JOINT_PROPS)
         local attachment0, attachment1, _part0, part1
         local ragdollJoint
         local rigJoint = table.unpack(self.Character:QueryDescendants(`Motor6D[Name = "{rigJointName}"]`)) or table.unpack(self.Character:QueryDescendants(`AnimationConstraint[Name = "{rigJointName}"]`))
